@@ -12,6 +12,8 @@ from huggingface_hub import snapshot_download
 from safetensors.torch import load_file
 
 from OmniGen.transformer import Phi3Config, Phi3Transformer
+from accelerate import init_empty_weights
+from accelerate.utils import BnbQuantizationConfig, load_and_quantize_model
 
 
 def modulate(x, shift, scale):
@@ -187,19 +189,43 @@ class OmniGen(nn.Module, PeftAdapterMixin):
         self.llm.config.use_cache = False
     
     @classmethod
-    def from_pretrained(cls, model_name):
+    def from_pretrained(cls, model_name, quantized_model: str=None):
         if not os.path.exists(model_name):
             cache_folder = os.getenv('HF_HUB_CACHE')
             model_name = snapshot_download(repo_id=model_name,
                                            cache_dir=cache_folder,
                                            ignore_patterns=['flax_model.msgpack', 'rust_model.ot', 'tf_model.h5'])
         config = Phi3Config.from_pretrained(model_name)
-        model = cls(config)
-        if os.path.exists(os.path.join(model_name, 'model.safetensors')):
+        with init_empty_weights():
+            model = cls(config)
+        if quantized_model is not None:
+            print("Loading quantized model")
+            # cache_folder = os.getenv('HF_HUB_CACHE')
+            # quantized_model = snapshot_download(repo_id=quantized_model,
+            #                                cache_dir=cache_folder,
+            #                                ignore_patterns=['flax_model.msgpack', 'rust_model.ot', 'tf_model.h5'])
+            ckpt = os.path.join(quantized_model, 'model.safetensors')
+        elif os.path.exists(os.path.join(model_name, 'model.safetensors')):
             print("Loading safetensors")
-            ckpt = load_file(os.path.join(model_name, 'model.safetensors'))
+            ckpt = os.path.join(model_name, 'model.safetensors')
+            # ckpt = load_file(ckpt)
         else:
-            ckpt = torch.load(os.path.join(model_name, 'model.pt'), map_location='cpu')
+            ckpt = os.path.join(model_name, 'model.pt')
+            # ckpt = torch.load(ckpt, map_location='cpu')
+        bnb_quantization_config = BnbQuantizationConfig(
+            load_in_8bit=True,
+            llm_int8_threshold=6.0,
+        )
+        quantized_model = load_and_quantize_model(
+            model,
+            weights_location=ckpt,
+            bnb_quantization_config=bnb_quantization_config,
+            device_map="auto",
+        )
+        # from accelerate import Accelerator
+        # accelerate = Accelerator()
+        # accelerate.save_model(quantized_model, "./")
+        return quantized_model
         model.load_state_dict(ckpt)
         return model
 

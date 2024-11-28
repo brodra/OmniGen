@@ -71,7 +71,7 @@ class OmniGenPipeline:
         self.model_cpu_offload = False
 
     @classmethod
-    def from_pretrained(cls, model_name, vae_path: str=None):
+    def from_pretrained(cls, model_name, vae_path: str=None, quantized_model: str=None):
         if not os.path.exists(model_name) or (not os.path.exists(os.path.join(model_name, 'model.safetensors')) and model_name == "Shitao/OmniGen-v1"):
             logger.info("Model not found, downloading...")
             cache_folder = os.getenv('HF_HUB_CACHE')
@@ -79,7 +79,7 @@ class OmniGenPipeline:
                                            cache_dir=cache_folder,
                                            ignore_patterns=['flax_model.msgpack', 'rust_model.ot', 'tf_model.h5', 'model.pt'])
             logger.info(f"Downloaded model to {model_name}")
-        model = OmniGen.from_pretrained(model_name)
+        model = OmniGen.from_pretrained(model_name, quantized_model=quantized_model)
         processor = OmniGenProcessor.from_pretrained(model_name)
 
         if os.path.exists(os.path.join(model_name, "vae")):
