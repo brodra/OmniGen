@@ -215,12 +215,13 @@ class OmniGen(nn.Module, PeftAdapterMixin):
         bnb_quantization_config = BnbQuantizationConfig(
             load_in_8bit=True,
             llm_int8_threshold=6.0,
+            skip_modules=[],
         )
         quantized_model = load_and_quantize_model(
             model,
             weights_location=ckpt,
             bnb_quantization_config=bnb_quantization_config,
-            device_map="auto",
+            device_map="sequential",
         )
         # from accelerate import Accelerator
         # accelerate = Accelerator()
