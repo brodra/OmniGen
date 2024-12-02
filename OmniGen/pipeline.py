@@ -231,7 +231,7 @@ class OmniGenPipeline:
         if max_input_image_size != self.processor.max_image_size:
             self.processor = OmniGenProcessor(self.processor.text_tokenizer, max_image_size=max_input_image_size)
         self.model.to(dtype)
-        #self.vae.to(dtype) # Uncomment this line to allow bfloat16 VAE
+        self.vae.to(dtype) # Uncomment this line to allow bfloat16 VAE
         if offload_model:
             self.enable_model_cpu_offload()
         else:
